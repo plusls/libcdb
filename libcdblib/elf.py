@@ -63,6 +63,6 @@ class ELF(ELFFile):
 
                 for symbol in section.iter_symbols():
                     value = symbol.entry.st_value
-                    if not value:
+                    if not value or not symbol.name:
                         continue
                     self.symbols[symbol.name] = value
