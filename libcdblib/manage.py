@@ -78,7 +78,7 @@ def _search_addr(libcdb_root, fun, addr):
     for fun_addr in addr_list:
         if int(fun_addr, 16) == addr:
             for buildid in os.listdir(dst_path + '/' + fun_addr):
-                result.add(buildid)
+                result.add(buildid[:-3])
     return result
 
 def _search_by_12bit(libcdb_root, fun, addr):
@@ -95,7 +95,7 @@ def _search_by_12bit(libcdb_root, fun, addr):
         if int(fun_addr, 16) % 0x1000 == addr:
             result[1].append(int(fun_addr, 16))
             for buildid in os.listdir(dst_path + '/' + fun_addr):
-                result[0].add(buildid)
+                result[0].add(buildid[:-3])
     return result
 
 def _delete_fun_dir(libcdb_root, libc):
