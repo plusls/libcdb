@@ -27,6 +27,8 @@ class ELF(ELFFile):
         self.symbols = {}
 
         self.buildid = self._get_buildid()
+        
+        self.arch = self._get_machine_arch()
 
         self._populate_symbols()
 
@@ -66,3 +68,18 @@ class ELF(ELFFile):
                     if not value or not symbol.name:
                         continue
                     self.symbols[symbol.name] = value
+
+    def _get_machine_arch(self):
+        return {
+            'EM_X86_64': 'amd64',
+            'EM_386' :'i386',
+            'EM_486': 'i386',
+            'EM_ARM': 'arm',
+            'EM_AARCH64': 'aarch64',
+            'EM_MIPS': 'mips',
+            'EM_PPC': 'powerpc',
+            'EM_PPC64': 'powerpc64',
+            'EM_SPARC32PLUS': 'sparc',
+            'EM_SPARCV9': 'sparc64',
+            'EM_IA_64': 'ia64'
+        }.get(self['e_machine'], self['e_machine'])
