@@ -4,6 +4,7 @@ import requests
 import os
 import re
 import json
+import shutil
 import subprocess
 from libcdblib.manage import add
 from libcdblib.elf import ELF
@@ -93,6 +94,8 @@ def _download_deb(libcdb_root, url, deb_list, buidid_dict, arch_dict):
                 fp = open('%s/%s/build-id.json' % (libcdb_root, libc.arch), 'w')
                 fp.write(json.dumps(arch_dict[libc.arch]))
                 fp.close()
+            # 清理垃圾
+            shutil.rmtree('%s/%s' % (download_path, deb[:-4]))
 
 def _mkdir(path):
     ''' mkdir '''

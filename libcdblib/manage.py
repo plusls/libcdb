@@ -2,7 +2,7 @@
 import os
 import shutil
 import copy
-
+import json
 from libcdblib.elf import ELF
 
 def add(libcdb_root, libc_file):
@@ -77,46 +77,55 @@ def _search_addr(libcdb_root, arch, fun, addr):
     ''' search addr
     '''
     result = set()
-    dst_path = '%s/%s/fun/%s' % (libcdb_root, arch, fun)
+    dst_path = '%s/%s/fun/%s.json' % (libcdb_root, arch, fun)
     
     if os.path.exists(dst_path) is False:
         return result
-    addr_list = os.listdir(dst_path)
-    for fun_addr in addr_list:
+    fp = open(dst_path, 'r')
+    offset_data = json.loads(fp.read())
+    fp.close()
+    for fun_addr in offset_data.keys():
         if int(fun_addr, 16) == addr:
-            for buildid in os.listdir(dst_path + '/' + fun_addr):
-                result.add(buildid[:-3])
+            for buildid in offset_data[fun_addr]:
+                result.add(buildid)
     return result
 
 def _search_by_12bit(libcdb_root, arch, fun, addr):
     ''' search by 12bit
     '''
     result = [set(), []]
-    dst_path = '%s/%s/fun/%s' % (libcdb_root, arch, fun)
+    dst_path = '%s/%s/fun/%s.json' % (libcdb_root, arch, fun)
     
     if os.path.exists(dst_path) is False:
         return result
-    addr_list = os.listdir(dst_path)
-    for fun_addr in addr_list:
-        #print(fun_addr, int(fun_addr, 16) % 0x1000, addr)
+    fp = open(dst_path, 'r')
+    offset_data = json.loads(fp.read())
+    fp.close()
+    
+    for fun_addr in offset_data.keys():
         if int(fun_addr, 16) % 0x1000 == addr:
             result[1].append(int(fun_addr, 16))
-            for buildid in os.listdir(dst_path + '/' + fun_addr):
-                result[0].add(buildid[:-3])
+            for buildid in offset_data[fun_addr]:
+                result[0].add(buildid)
     return result
 
 def _delete_fun_dir(libcdb_root, libc):
     ''' delete fun offset data
     '''
     for fun, addr in libc.symbols.items():
-        dst_file = '%s/%s/fun/%s/%x/%s.so' % (libcdb_root, libc.arch, fun, addr, libc.buildid)
-        if  os.path.exists(dst_file) is True:
-            os.remove(dst_file)
-        if not os.listdir('%s/%s/fun/%s/%x' % (libcdb_root, libc.arch, fun, addr)):
-            os.rmdir('%s/%s/fun/%s/%x' % (libcdb_root, libc.arch, fun, addr))
-        if not os.listdir('%s/%s/fun/%s' % (libcdb_root, libc.arch, fun)):
-            os.rmdir('%s/%s/fun/%s' % (libcdb_root, libc.arch, fun))
-
+        addr_hex = '%x' % addr
+        fp = open('%s/%s/fun/%s.json' % (libcdb_root, libc.arch, fun), 'r')
+        offset_data = json.loads(fp.read())
+        fp.close()
+        offset_data[addr_hex].remove(libc.buildid)
+        if not offset_data[addr_hex]:
+            del offset_data[addr_hex]
+        if offset_data:
+            fp = open('%s/%s/fun/%s.json' % (libcdb_root, libc.arch, fun), 'w')
+            fp.write(json.dumps(offset_data))
+            fp.close()
+        else:
+            os.remove('%s/%s/fun/%s.json' % (libcdb_root, libc.arch, fun))
     if not os.listdir('%s/%s/fun' % (libcdb_root, libc.arch)):
         os.rmdir('%s/%s/fun' % (libcdb_root, libc.arch))
 
@@ -128,13 +137,22 @@ def _add_fun_offset_data(libcdb_root, libc):
     _mkdir('%s/%s/fun' % (libcdb_root, libc.arch))
 
     for fun, addr in libc.symbols.items():
-        _mkdir('%s/%s/fun/%s' % (libcdb_root, libc.arch, fun))
-        _mkdir('%s/%s/fun/%s/%x' % (libcdb_root, libc.arch, fun, addr))
-        dst_file = '%s/%s/fun/%s/%x/%s.so' % (libcdb_root, libc.arch, fun, addr, libc.buildid)
-        source_file = '../../../libcdb/%s/%s.so' % (libc.buildid[:2], libc.buildid[2:])
-        if  os.path.exists(dst_file) is True:
-            os.remove(dst_file)
-        os.symlink(source_file, dst_file)
+        try:
+            fp = open('%s/%s/fun/%s.json' % (libcdb_root, libc.arch, fun), 'r')
+            offset_data = json.loads(fp.read())
+            fp.close()
+        except FileNotFoundError:
+            offset_data = dict()
+        addr_hex = '%x' % addr
+        if addr_hex not in offset_data:
+            offset_data[addr_hex] = []
+        
+        # 去重
+        if libc.buildid not in offset_data[addr_hex]:
+            offset_data[addr_hex].append(libc.buildid)
+        fp = open('%s/%s/fun/%s.json' % (libcdb_root, libc.arch, fun), 'w')
+        fp.write(json.dumps(offset_data))
+        fp.close()
 
 def _mkdir(path):
     ''' mkdir '''
